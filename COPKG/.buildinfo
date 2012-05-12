@@ -1,0 +1,156 @@
+/* target information */
+@import "version.inc";
+
+
+#product-info  {
+	product-name: "glut";
+	version: "3.7";
+	original-source-location: "http://www.opengl.org/resources/libraries/glut/glut37.zip";
+	original-source-website: "http://www.opengl.org/resources/libraries/glut/";
+	license: "CUSTOM";
+	packager: "Hamish C";
+}
+
+test {
+    set: {
+        COMPILERS="${COMPILERS??vc10}";
+        PLAT="${PLAT??x86,x64}";
+    };
+
+    default : false;
+    uses: release;
+    build-command: @"
+	    for %%A in (${COMPILERS}) do (
+            for %%B in (${PLAT}) do (
+                call :testroutine ""%%A"" ""%%B""
+            )
+        )
+        goto :eof
+
+:testroutine
+        pushd output\%~1\%~2\Release\bin\
+        
+        for /F %%E in ('type ..\..\..\..\..\COPKG\tests.txt') do (
+            %%E || (echo %%E failed... & goto failed)
+        )
+
+        goto passed
+:failed
+        echo Test(s) failed for (%~1,%~2)
+:passed
+        popd
+        goto :eof
+    ";
+};
+
+package {
+    set: COMP="${COMP??vc10}";
+    set: PLAT="${PLAT??x86, x64}";
+    default : false;
+    uses : sign;
+    
+    targets: { 
+        @"copkg\glut[vc10]-${package-version}-x86.msi",
+        @"copkg\glut-dev[vc10]-${package-version}-x86.msi",
+        @"copkg\glut-dev-common-${package-version}-any.msi",
+        @"copkg\glut[vc10]-${package-version}-x64.msi",
+        @"copkg\glut-dev[vc10]-${package-version}-x64.msi"
+    };
+    
+    build-command : @"
+         pushd COPKG
+        autopackage glut-dev-common.autopkg || goto failed
+        
+        for %%A in (${COMP}) do (
+            for %%B in (${PLAT}) do (
+                autopackage --COMP=%%A --PLAT=%%B glut.autopkg glut-dev.autopkg || goto failed
+            )
+        )
+        popd
+        ptk update-version
+    ";
+
+	clean-command: @"del COPKG\*.msi COPKG\*.wixpdb";
+};
+
+update-version {
+    default : false;
+    
+    build-command : @"
+        REM auto-increment version.inc file...
+        
+        pushd COPKG
+        setlocal EnableDelayedExpansion
+        for /F ""tokens=4,5,6,7  delims=.; "" %%v in (version.inc) do (
+            set /a build=%%y + 1
+            set VERSTRING=#define { package-version: %%v.%%w.%%x.!build!; }
+        )
+        echo !VERSTRING! > version.inc
+        popd
+    ";
+}
+
+release {
+    set: {
+        COMPILERS="${COMPILERS??vc10}";
+        PLAT="${PLAT??x86, x64}";
+        CONFIG="Release";
+    };
+
+    build-command: @"
+        for %%A in (${COMPILERS}) do (
+            for %%B in (${PLAT}) do (
+			    ptk -nologo base --CONFIG=${CONFIG} --COMP=%%A --PLAT=%%B
+		    )
+        )
+    ";
+};
+
+sign {
+    default : false;
+    uses: release;
+    build-command: @"simplesigner.exe --nologo --sign output\**.dll output\**.exe";
+};
+
+x86 {
+    set: PLAT=x86;
+    uses: base;
+};
+
+x64 {
+    set: PLAT=x64;
+    uses: base;
+};
+
+base {
+    set: {
+        CONFIG="${CONFIG??Release}";
+        COMP="${COMP??vc10}";
+        PLAT="${PLAT??x86}";
+    };
+
+    compiler:"${COMP}";
+    platform:"${PLAT}";
+
+    targets: { 
+		//"output\${COMP}\${PLAT}\Release\bin",
+	};
+	
+    build-command:@"
+        call glutmake.bat clean
+        call glutmake.bat
+        mkdir output\${COMP}\${PLAT}\${CONFIG}\bin
+
+        rem copy all the stuff here
+        copy lib\glut\*.dll output\${COMP}\${PLAT}\${CONFIG}\bin
+        copy lib\glut\*.lib output\${COMP}\${PLAT}\${CONFIG}\bin
+        copy test\glut\*.exe output\${COMP}\${PLAT}\${CONFIG}\bin
+        copy test\mui\*.exe output\${COMP}\${PLAT}\${CONFIG}\bin
+	";
+    
+    clean-command:@"
+       glutmake.bat clean
+
+       if exist output rmdir /s /q output > nul 2> nul
+    ";
+};

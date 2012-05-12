@@ -12,7 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <GL/glut.h>
-
+#if defined(_WIN32)
+#include <sys/timeb.h>
+#endif
 
 #ifdef _WIN32
 #define drand48() ((float)rand()/RAND_MAX)
@@ -65,7 +67,6 @@ timedelta(void)
     static long finish, difference;
 
 #if defined(_WIN32)
-#include <sys/timeb.h>
     static struct timeb tb;
 
     ftime(&tb);
