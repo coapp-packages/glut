@@ -21,21 +21,32 @@ metadata {
     };
 }
 
-files[headers] {
-    root: @"..\include\";
+files[GLheaders] {
+    root: @"..\include\GL";
 
     include: {
         "*",
     };
     
     trim-path:all;
+    destination:"GL";
+}
+
+files[muiheaders] {
+    root: @"..\include\mui";
+
+    include: {
+        "*",
+    };
     
-    destination-path:"include";
+    trim-path:all;
+    destination:"mui";
 }
 
 
 developer-library[${pkg-name}] {
     headers: { 
-        headers
+        muiheaders,
+        GLheaders
     };
 }
